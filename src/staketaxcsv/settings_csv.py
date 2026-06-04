@@ -50,6 +50,7 @@ SAGA_NODE = os.environ.get("STAKETAX_SAGA_NODE", "https://saga-api.polkachu.com"
 SCRT_NODE = os.environ.get("STAKETAX_SCRT_NODE", "")
 SEI_NODE = os.environ.get("STAKETAX_SEI_NODE", "https://sei-api.polkachu.com/")
 SOL_NODE = os.environ.get("STAKETAX_SOL_NODE", "https://api.mainnet-beta.solana.com")
+SOL_RPC_SLEEP = float(os.environ.get("STAKETAX_SOL_RPC_SLEEP", "-1"))  # -1 = valeur par défaut selon le nœud
 STARS_NODE = os.environ.get("STAKETAX_STARS_NODE", "")
 STARS_NODE_RPC = os.environ.get("STAKETAX_STARS_NODE_RPC", "")
 STRD_NODE = os.environ.get("STAKETAX_STRD_NODE", "https://lcd-stride.whispernode.com")

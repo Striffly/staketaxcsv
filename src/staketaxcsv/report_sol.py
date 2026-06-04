@@ -130,6 +130,8 @@ def txhistory(wallet_address):
         _fetch_and_process_txs(staking_addr_txids, staking_wallet_info, exporter, progress=None)
 
     ErrorCounter.log(TICKER_SOL, wallet_address)
+    staketaxcsv.sol.processor.print_unknown_tx_report(wallet_address)
+    staketaxcsv.sol.processor.reset_tracker()
     return exporter
 
 

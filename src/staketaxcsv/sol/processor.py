@@ -41,12 +41,59 @@ from staketaxcsv.sol.handle_simple import (
 from staketaxcsv.sol.handle_swap_v2 import handle_program_swap_v2
 from staketaxcsv.sol.handle_transfer import handle_transfer, is_transfer
 from staketaxcsv.sol.handle_unknowns import handle_2kd, handle_djv
+from staketaxcsv.sol.handle_pumpfun import handle_pumpfun
+from staketaxcsv.sol.handle_raydium_route import handle_raydium_route
+from staketaxcsv.sol.handle_degen_crash import handle_degen_crash
+from staketaxcsv.sol.handle_token_close import handle_token_close
 from staketaxcsv.sol.handle_vote import handle_vote
 from staketaxcsv.sol.handle_wormhole import handle_wormhole
 from staketaxcsv.sol.parser import parse_tx
 
+# ── Rapport de qualité des données ─────────────────────────────────────────
+_unknown_tx_details = []   # [{txid, program_ids, balance_changes}]
+_total_tx_processed = 0
+
+
+def reset_tracker():
+    global _unknown_tx_details, _total_tx_processed
+    _unknown_tx_details = []
+    _total_tx_processed = 0
+
+
+def print_unknown_tx_report(wallet_address):
+    """Imprime un rapport lisible sur la qualité des données générées."""
+    impactful = [d for d in _unknown_tx_details if d["balance_changes"]]
+    harmless  = [d for d in _unknown_tx_details if not d["balance_changes"]]
+
+    sep = "=" * 72
+    print(f"\n{sep}")
+    print(f"RAPPORT DE QUALITÉ DES DONNÉES — Wallet : {wallet_address}")
+    print(sep)
+    print(f"  Transactions analysées                         : {_total_tx_processed}")
+    print(f"  Transactions non reconnues (unknown_sol_tx)    : {len(_unknown_tx_details)}")
+    print(f"    → sans impact sur le solde (NFT, vote…)     : {len(harmless)}")
+    print(f"    → avec impact sur le solde NON CAPTURÉ      : {len(impactful)}")
+
+    if impactful:
+        print("\n  /!\\ TRANSACTIONS AVEC IMPACT MANQUANTES :")
+        for d in impactful:
+            print(f"    txid     : {d['txid']}")
+            print(f"    programs : {d['program_ids']}")
+            print(f"    delta    : {d['balance_changes']}")
+            print(f"    url      : https://solana.fm/tx/{d['txid']}")
+            print()
+        print("  VERDICT : Le CSV NE reflète PAS complètement l'état du portefeuille.")
+        print("            Les transactions listées ci-dessus sont absentes du registre.")
+    else:
+        print("\n  VERDICT : OK — Toutes les transactions ayant un impact sur le solde")
+        print("            ont été capturées. Le CSV reflète fidèlement le portefeuille.")
+    print(f"{sep}\n")
+# ───────────────────────────────────────────────────────────────────────────
+
 
 def process_tx(wallet_info, exporter, txid, data):
+    global _total_tx_processed
+    _total_tx_processed += 1
     txinfo = parse_tx(txid, data, wallet_info)
 
     try:
@@ -78,6 +125,22 @@ def process_tx(wallet_info, exporter, txid, data):
             handle_djv(exporter, txinfo)
         elif co.PROGRAMID_UNKNOWN_2KD in program_ids:
             handle_2kd(exporter, txinfo)
+
+        # Pump.fun bonding curve
+        elif co.PROGRAMID_PUMPFUN in program_ids:
+            handle_pumpfun(exporter, txinfo)
+
+        # Raydium AMM Routing
+        elif co.PROGRAMID_RAYDIUM_ROUTE in program_ids:
+            handle_raydium_route(exporter, txinfo)
+
+        # Degen Crash gambling
+        elif co.PROGRAMID_DEGEN_CRASH in program_ids:
+            handle_degen_crash(exporter, txinfo)
+
+        # Token burn / close account services (rent refund)
+        elif co.PROGRAMID_TOKEN_BURNER in program_ids:
+            handle_token_close(exporter, txinfo)
 
         # Raydium programs
         elif co.PROGRAMID_RAYDIUM_LP_V2 in program_ids:
@@ -163,6 +226,19 @@ def process_tx(wallet_info, exporter, txid, data):
         else:
             handle_unknown_detect_transfers(exporter, txinfo)
             ErrorCounter.increment("unknown_sol_tx", txid)
+            balance_changes = txinfo.balance_changes_wallet or {}
+            _unknown_tx_details.append({
+                "txid": txid,
+                "program_ids": txinfo.program_ids,
+                "instruction_types": txinfo.instruction_types,
+                "balance_changes": balance_changes,
+            })
+            logging.info(
+                "unknown_sol_tx details — txid=%s | program_ids=%s | instruction_types=%s | "
+                "balance_changes_wallet=%s | url=https://solana.fm/tx/%s",
+                txid, txinfo.program_ids, txinfo.instruction_types,
+                balance_changes, txid,
+            )
 
     except Exception as e:
         logging.error("Exception when handling txid=%s, exception=%s", txid, str(e))

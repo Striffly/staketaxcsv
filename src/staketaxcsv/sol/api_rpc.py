@@ -5,7 +5,7 @@ import requests
 
 from staketaxcsv.common.query import post_with_retries
 from staketaxcsv.common.debug_util import debug_cache
-from staketaxcsv.settings_csv import REPORTS_DIR, SOL_NODE
+from staketaxcsv.settings_csv import REPORTS_DIR, SOL_NODE, SOL_RPC_SLEEP
 from staketaxcsv.sol.config_sol import localconfig
 from staketaxcsv.sol.constants import BILLION, PROGRAMID_STAKE, PROGRAMID_TOKEN_ACCOUNTS, PROGRAMID_TOKEN_2022
 TOKEN_ACCOUNTS = {}
@@ -26,7 +26,9 @@ class RpcAPI(object):
 
         result = post_with_retries(cls.session, SOL_NODE, data, {}, retries=5, backoff_factor=5)
 
-        if "api.mainnet-beta.solana.com" in SOL_NODE:
+        if SOL_RPC_SLEEP >= 0:
+            time.sleep(SOL_RPC_SLEEP)
+        elif "api.mainnet-beta.solana.com" in SOL_NODE:
             time.sleep(0.3)
         else:
             time.sleep(0.1)
@@ -177,6 +179,9 @@ class RpcAPI(object):
         data2 = cls._fetch_token_accounts(wallet_address, PROGRAMID_TOKEN_2022)
 
         result = {}
+        if "result" not in data:
+            logging.error("fetch_token_accounts failed for %s. Response: %s", wallet_address, data)
+            raise RuntimeError(f"RPC getProgramAccounts failed: {data}")
         result.update(cls._extract_token_accounts(data["result"]["value"]))
         result.update(cls._extract_token_accounts(data2["result"]["value"]))
 
