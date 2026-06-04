@@ -44,6 +44,7 @@ from staketaxcsv.sol.handle_unknowns import handle_2kd, handle_djv
 from staketaxcsv.sol.handle_pumpfun import handle_pumpfun
 from staketaxcsv.sol.handle_raydium_route import handle_raydium_route
 from staketaxcsv.sol.handle_degen_crash import handle_degen_crash
+from staketaxcsv.sol.handle_okx_dex import handle_okx_dex
 from staketaxcsv.sol.handle_token_close import handle_token_close
 from staketaxcsv.sol.handle_vote import handle_vote
 from staketaxcsv.sol.handle_wormhole import handle_wormhole
@@ -137,6 +138,11 @@ def process_tx(wallet_info, exporter, txid, data):
         # Degen Crash gambling
         elif co.PROGRAMID_DEGEN_CRASH in program_ids:
             handle_degen_crash(exporter, txinfo)
+
+        # OKX DEX aggregator (must precede is_simple_tx: its createAccountWithSeed
+        # for the wSOL account would otherwise be misread as _STAKING_CREATE)
+        elif co.PROGRAMID_OKX_DEX in program_ids:
+            handle_okx_dex(exporter, txinfo)
 
         # Token burn / close account services (rent refund)
         elif co.PROGRAMID_TOKEN_BURNER in program_ids:

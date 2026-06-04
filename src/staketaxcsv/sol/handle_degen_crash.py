@@ -19,7 +19,7 @@ retirant que le vrai gas réseau.
 from staketaxcsv.common.make_tx import make_income_tx, make_spend_tx
 from staketaxcsv.sol.constants import CURRENCY_SOL
 from staketaxcsv.sol.handle_simple import handle_unknown_detect_transfers
-from staketaxcsv.sol.util_sol import net_sol_movement_from_raw
+from staketaxcsv.sol.util_sol import net_sol_movement_from_raw, reset_fee_to_gas
 
 
 def handle_degen_crash(exporter, txinfo):
@@ -43,6 +43,12 @@ def handle_degen_crash(exporter, txinfo):
         # transfers_net vide : la mise/le gain SOL (< 0.03) a été avalé en "fee".
         # On reconstruit le mouvement SOL net réel (gas exclu).
         net_sol = net_sol_movement_from_raw(txinfo)
+
+        # detect_fees a mis toute la mise dans txinfo.fee (≈ net_sol), pas seulement
+        # le gas. Sans correction, make_*_tx ré-attacherait cette "fee" et compterait
+        # la mise une 2e fois. On remet la vraie fee réseau (fee_blockchain).
+        reset_fee_to_gas(txinfo)
+
         if net_sol < -1e-9:
             # mise jouée / perdue
             row = make_spend_tx(txinfo, -net_sol, CURRENCY_SOL)

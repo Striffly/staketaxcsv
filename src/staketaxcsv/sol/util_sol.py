@@ -101,6 +101,20 @@ def net_sol_movement_from_raw(txinfo):
     return net
 
 
+def reset_fee_to_gas(txinfo):
+    """ Reset txinfo.fee to the true on-chain gas (fee_blockchain).
+
+    detect_fees()/calculate_fee() fold any sub-threshold SOL out (< FEE_THRESHOLD)
+    into txinfo.fee — including the real economic SOL leg of a swap/bet. When a
+    handler rebuilds that leg from RAW transfers (swap_legs_from_raw /
+    net_sol_movement_from_raw) and passes it as the sent amount, make_*_tx would
+    STILL re-attach the polluted txinfo.fee, double-counting the SOL. Call this
+    before building the row so only the genuine network gas remains in the fee.
+    """
+    txinfo.fee = txinfo.fee_blockchain or ""
+    txinfo.fee_currency = CURRENCY_SOL if txinfo.fee else ""
+
+
 def calculate_fee(txinfo):
     """ Returns fee amount for transaction """
     _, transfers_out, _ = txinfo.transfers

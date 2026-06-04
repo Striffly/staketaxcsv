@@ -2,7 +2,7 @@
 from staketaxcsv.common.make_tx import make_swap_tx
 from staketaxcsv.sol.constants import CURRENCY_SOL
 from staketaxcsv.sol.handle_simple import handle_unknown_detect_transfers
-from staketaxcsv.sol.util_sol import swap_legs_from_raw
+from staketaxcsv.sol.util_sol import reset_fee_to_gas, swap_legs_from_raw
 
 
 def handle_jupiter_aggregator_v1(exporter, txinfo):
@@ -59,6 +59,7 @@ def _handle_jupiter_aggregator(exporter, txinfo):
         legs = swap_legs_from_raw(txinfo)
         if legs:
             sent_amount, sent_currency, received_amount, received_currency = legs
+            reset_fee_to_gas(txinfo)  # the swallowed SOL leg is now in `sent`, not fee
             row = make_swap_tx(txinfo, sent_amount, sent_currency, received_amount, received_currency)
             exporter.ingest_row(row)
         else:

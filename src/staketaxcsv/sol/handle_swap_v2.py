@@ -3,7 +3,7 @@
 from staketaxcsv.common.make_tx import make_swap_tx
 from staketaxcsv.sol.constants import LOG_INSTRUCTION_SWAP
 from staketaxcsv.sol.handle_simple import handle_unknown
-from staketaxcsv.sol.util_sol import swap_legs_from_raw
+from staketaxcsv.sol.util_sol import reset_fee_to_gas, swap_legs_from_raw
 
 
 def handle_program_swap_v2(exporter, txinfo):
@@ -44,6 +44,7 @@ def _handle_swap(exporter, txinfo):
         legs = swap_legs_from_raw(txinfo)
         if legs:
             sent_amount, sent_currency, received_amount, received_currency = legs
+            reset_fee_to_gas(txinfo)  # the swallowed SOL leg is now in `sent`, not fee
             row = make_swap_tx(txinfo, sent_amount, sent_currency, received_amount, received_currency)
             exporter.ingest_row(row)
         else:

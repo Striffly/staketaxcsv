@@ -5,7 +5,7 @@ import logging
 from staketaxcsv.common.make_tx import make_swap_tx
 from staketaxcsv.sol.config_sol import localconfig
 from staketaxcsv.sol.make_tx import make_serum_dex_no_transfer, make_serum_dex_transfer_in, make_serum_dex_transfer_out
-from staketaxcsv.sol.util_sol import swap_legs_from_raw
+from staketaxcsv.sol.util_sol import reset_fee_to_gas, swap_legs_from_raw
 
 
 def handle_serumv3(exporter, txinfo):
@@ -34,6 +34,7 @@ def handle_serumv3(exporter, txinfo):
     legs = swap_legs_from_raw(txinfo)
     if legs:
         sent_amount, sent_currency, received_amount, received_currency = legs
+        reset_fee_to_gas(txinfo)  # the swallowed SOL leg is now in `sent`, not fee
         row = make_swap_tx(txinfo, sent_amount, sent_currency, received_amount, received_currency)
         exporter.ingest_row(row)
         return
