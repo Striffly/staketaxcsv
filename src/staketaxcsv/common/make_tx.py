@@ -4,6 +4,7 @@ from staketaxcsv.common.ExporterTypes import (
     TX_TYPE_BORROW,
     TX_TYPE_DEPOSIT_COLLATERAL,
     TX_TYPE_EXCLUDED,
+    TX_TYPE_GIFT_RECEIVED,
     TX_TYPE_INCOME,
     TX_TYPE_LP_DEPOSIT,
     TX_TYPE_LP_STAKE,
@@ -39,6 +40,36 @@ def make_airdrop_tx(txinfo, reward_amount, reward_currency, txid=None, empty_fee
 def make_income_tx(txinfo, income_amount, income_currency, txid=None, empty_fee=False, z_index=0):
     return _make_tx_received(
         txinfo, income_amount, income_currency, TX_TYPE_INCOME, txid, empty_fee=empty_fee, z_index=z_index)
+
+
+def make_buy_tx(txinfo, received_amount, received_currency, txid=None, empty_fee=False, z_index=0, note=""):
+    """ Single-sided acquisition: crypto received whose fiat/cost leg is unavailable
+    (e.g. withdrawal from a CEX account we no longer control). Recorded as GIFT_RECEIVED
+    (-> BittyTax "Gift-Received") so it is valued at the market price of the day and added
+    to the cost basis, without being taxed as income or treated as a zero-cost transfer-in.
+    A single-sided "Trade" cannot be used: BittyTax rejects a Trade with no sell leg.
+    `note` is written to the BittyTax Note column to explain the Gift-Received label. """
+    row = _make_tx_received(
+        txinfo, received_amount, received_currency, TX_TYPE_GIFT_RECEIVED, txid,
+        empty_fee=empty_fee, z_index=z_index)
+    if note:
+        row.comment = (note + " " + row.comment).strip() if row.comment else note
+    return row
+
+
+def make_fiat_sale_tx(txinfo, sent_amount, sent_currency, fiat_amount, fiat_currency,
+                      txid=None, empty_fee=False, z_index=0, note=""):
+    """ Sale of crypto against fiat received off-chain (e.g. an OTC sale paid by PayPal).
+    On-chain only the crypto leg is visible (an outbound transfer); the fiat proceeds are
+    known from off-chain context. Recorded as a TRADE (sell crypto / buy fiat) so it is a
+    taxable cession valued at the exact fiat amount received, instead of an unpaired
+    transfer-out. `note` documents the off-chain counterparty. """
+    row = _make_tx_exchange(
+        txinfo, sent_amount, sent_currency, fiat_amount, fiat_currency, TX_TYPE_TRADE, txid,
+        empty_fee=empty_fee, z_index=z_index)
+    if note:
+        row.comment = (note + " " + row.comment).strip() if row.comment else note
+    return row
 
 
 def make_reward_tx(txinfo, reward_amount, reward_currency, txid=None, empty_fee=False, z_index=0):

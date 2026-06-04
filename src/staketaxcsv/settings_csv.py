@@ -67,6 +67,39 @@ SOL_REWARDS_SOLSCAN_API_TOKEN = os.environ.get("STAKETAX_SOL_REWARDS_SOLSCAN_API
 SOL_REWARDS_FLIPSIDE_API_KEY = os.environ.get("STAKETAX_SOL_REWARDS_FLIPSIDE_API_KEY", "")
 SOL_REWARDS_USE_DB = os.environ.get("STAKETAX_SOL_REWARDS_USE_DB", False)
 
+# Manual per-txid overrides for Solana transactions whose correct tax treatment cannot be
+# inferred from on-chain data alone (off-chain context known only to the taxpayer). Loaded
+# from a CSV pointed to by STAKETAX_SOL_OVERRIDES_FILE, with columns:
+#   txid,type,amount,currency,note
+# Supported types (see sol/handle_transfer.py):
+#   - acquisition : inbound transfer = withdrawal from a CEX account no longer accessible
+#                   (cost basis lost) -> market-priced acquisition (Gift-Received).
+#   - fiat_sale   : outbound transfer = sale against fiat received off-chain (e.g. PayPal)
+#                   -> Trade selling the crypto for `amount` `currency` (taxable cession).
+# Kept in a versioned, commented data file rather than env vars: these are not secrets but
+# fiscal annotations that document why each tx is treated specially.
+def _load_sol_overrides():
+    path = os.environ.get("STAKETAX_SOL_OVERRIDES_FILE", "")
+    overrides = {}
+    if not path or not os.path.exists(path):
+        return overrides
+    import csv
+    with open(path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            txid = (row.get("txid") or "").strip()
+            if not txid:
+                continue
+            overrides[txid] = {
+                "type": (row.get("type") or "").strip(),
+                "amount": (row.get("amount") or "").strip(),
+                "currency": (row.get("currency") or "").strip(),
+                "note": (row.get("note") or "").strip(),
+            }
+    return overrides
+
+
+SOL_OVERRIDES = _load_sol_overrides()
+
 # ###
 
 # #############################################################################

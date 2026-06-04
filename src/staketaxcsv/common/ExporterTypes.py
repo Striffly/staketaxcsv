@@ -79,6 +79,7 @@ TX_TYPE_TRADE = "TRADE"
 TX_TYPE_TRANSFER = "TRANSFER"
 TX_TYPE_SPEND = "SPEND"
 TX_TYPE_INCOME = "INCOME"
+TX_TYPE_GIFT_RECEIVED = "GIFT_RECEIVED"  # single-sided acquisition valued at market, not income
 TX_TYPE_BORROW = "BORROW"
 TX_TYPE_REPAY = "REPAY"
 TX_TYPE_LP_DEPOSIT = "LP_DEPOSIT"  # note: only koinly has export; others treat as transfer

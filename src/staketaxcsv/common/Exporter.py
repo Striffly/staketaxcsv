@@ -1458,6 +1458,7 @@ class Exporter:
             et.TX_TYPE_TRANSFER: "_TRANSFER",
             et.TX_TYPE_SPEND: "Spend",
             et.TX_TYPE_INCOME: "Income",
+            et.TX_TYPE_GIFT_RECEIVED: "Gift-Received",
             et.TX_TYPE_BORROW: "_BORROW",
             et.TX_TYPE_REPAY: "_REPAY",
             et.TX_TYPE_LP_DEPOSIT: "Trade",
