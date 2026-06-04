@@ -1478,7 +1478,15 @@ class Exporter:
             for row in rows:
                 # Determine type
                 bt_type = bittytax_types.get(row.tx_type, row.tx_type)
-                if row.tx_type == et.TX_TYPE_TRANSFER:
+                if row.tx_type == et.TX_TYPE_SPEND and (row.comment or "").startswith("burn "):
+                    # Token burned (destroyed, not sold): a voluntary burn is not a cession à
+                    # titre onéreux. Promote the burn-tagged SPEND to bittytax "Lost" — a
+                    # non-disposal here — so it empties the holding without being read as a
+                    # taxable cession. The FR module maps "Lost" to a non-cession. Tag set by
+                    # handle_token_close (BURN_COMMENT_PREFIX); same note-tag discrimination as
+                    # gambling_win / don_tiers.
+                    bt_type = "Lost"
+                elif row.tx_type == et.TX_TYPE_TRANSFER:
                     if row.received_amount and not row.sent_amount:
                         bt_type = "Deposit"
                     elif row.sent_amount and not row.received_amount:
