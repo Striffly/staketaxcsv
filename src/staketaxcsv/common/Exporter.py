@@ -1487,16 +1487,29 @@ class Exporter:
                             row.received_amount, row.sent_amount, row.as_array()))
                 elif row.tx_type == et.TX_TYPE_UNKNOWN:
                     # Unrecognised tx: map to a valid bittytax type so --audit can import it.
-                    #  - no asset moved (network fee only, e.g. SPL account init, compressed
-                    #    NFT mint) -> "Fee": non-disposal, just decrements the SOL balance.
-                    #    Aligned with BOFiP BOI-RPPM-PVBMC-30-20 §50 (fees are not a separate
-                    #    taxable cession; they reduce the holding / the main operation).
-                    #  - assets moved (e.g. pump.fun buy SOL->token) -> "Trade": crypto<->crypto
-                    #    swap, re-neutralised as "sursis" (non-taxable) by the FR module.
+                    # A bittytax "Trade" REQUIRES both a buy and a sell leg, so we can
+                    # only use it when both sides are present. Mono-leg _UNKNOWN rows
+                    # (multi-leg swaps split one-row-per-transfer by
+                    # handle_unknown_detect_transfers, or buys where the SOL leg is
+                    # carried as fee) must map to Deposit/Withdrawal instead, otherwise
+                    # bittytax fails with "Missing data for Buy/Sell Quantity".
+                    #  - no asset moved (network fee only, e.g. SPL account init,
+                    #    compressed-NFT mint) -> "Fee": non-disposal, just decrements
+                    #    the SOL balance. BOFiP BOI-RPPM-PVBMC-30-20 §50 (fees are not
+                    #    a separate taxable cession).
+                    #  - both legs (e.g. pump.fun buy SOL<->token) -> "Trade":
+                    #    crypto<->crypto swap, re-neutralised as "sursis" by the FR module.
+                    #  - received only -> "Deposit" (asset in; any SOL fee still
+                    #    decrements the balance via the Fee column).
+                    #  - sent only -> "Withdrawal" (asset out).
                     if not row.received_amount and not row.sent_amount:
                         bt_type = "Fee"
-                    else:
+                    elif row.received_amount and row.sent_amount:
                         bt_type = "Trade"
+                    elif row.received_amount:
+                        bt_type = "Deposit"
+                    else:
+                        bt_type = "Withdrawal"
 
                 # Add a dummy sent_amount if fee is on it's own (except for the "Fee"
                 # type, which is valid fee-only and needs no dummy Sell leg)

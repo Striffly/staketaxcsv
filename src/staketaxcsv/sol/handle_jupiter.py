@@ -2,6 +2,7 @@
 from staketaxcsv.common.make_tx import make_swap_tx
 from staketaxcsv.sol.constants import CURRENCY_SOL
 from staketaxcsv.sol.handle_simple import handle_unknown_detect_transfers
+from staketaxcsv.sol.util_sol import swap_legs_from_raw
 
 
 def handle_jupiter_aggregator_v1(exporter, txinfo):
@@ -52,4 +53,13 @@ def _handle_jupiter_aggregator(exporter, txinfo):
         row = make_swap_tx(txinfo, txinfo.fee, CURRENCY_SOL, received_amount, received_currency, empty_fee=True)
         exporter.ingest_row(row)
     else:
-        handle_unknown_detect_transfers(exporter, txinfo)
+        # detect_fees mis-handled the SOL leg (either swallowed a small SOL buy, or
+        # left the gas in as a spurious 3rd leg, e.g. USDC->token where the SOL gas
+        # exceeds FEE_THRESHOLD). Rebuild from raw, netting out only the true gas.
+        legs = swap_legs_from_raw(txinfo)
+        if legs:
+            sent_amount, sent_currency, received_amount, received_currency = legs
+            row = make_swap_tx(txinfo, sent_amount, sent_currency, received_amount, received_currency)
+            exporter.ingest_row(row)
+        else:
+            handle_unknown_detect_transfers(exporter, txinfo)

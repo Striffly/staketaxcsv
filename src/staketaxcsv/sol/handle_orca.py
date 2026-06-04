@@ -1,7 +1,7 @@
 from staketaxcsv.common.make_tx import make_swap_tx
 from staketaxcsv.sol.constants import CURRENCY_SOL, CURRENCY_STSOL
 from staketaxcsv.sol.handle_simple import handle_unknown_detect_transfers
-from staketaxcsv.sol.util_sol import FEE_THRESHOLD
+from staketaxcsv.sol.util_sol import FEE_THRESHOLD, swap_legs_from_raw
 
 STSOL_FEE_THRESHOLD = 0.0001
 
@@ -33,5 +33,13 @@ def handle_orca_swap_v2(exporter, txinfo):
             row = make_swap_tx(txinfo, sent_amount, sent_currency, received_amount, received_currency)
             exporter.ingest_row(row)
             return
+
+    # detect_fees may have swallowed a small SOL leg (< FEE_THRESHOLD): rebuild from raw.
+    legs = swap_legs_from_raw(txinfo)
+    if legs:
+        sent_amount, sent_currency, received_amount, received_currency = legs
+        row = make_swap_tx(txinfo, sent_amount, sent_currency, received_amount, received_currency)
+        exporter.ingest_row(row)
+        return
 
     handle_unknown_detect_transfers(exporter, txinfo)

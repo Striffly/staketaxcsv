@@ -3,6 +3,7 @@
 from staketaxcsv.common.make_tx import make_swap_tx
 from staketaxcsv.sol.constants import LOG_INSTRUCTION_SWAP
 from staketaxcsv.sol.handle_simple import handle_unknown
+from staketaxcsv.sol.util_sol import swap_legs_from_raw
 
 
 def handle_program_swap_v2(exporter, txinfo):
@@ -39,4 +40,11 @@ def _handle_swap(exporter, txinfo):
         row = make_swap_tx(txinfo, sent_amount, sent_currency, received_amount, received_currency)
         exporter.ingest_row(row)
     else:
-        handle_unknown(exporter, txinfo)
+        # detect_fees may have swallowed a small SOL leg (< FEE_THRESHOLD): rebuild from raw.
+        legs = swap_legs_from_raw(txinfo)
+        if legs:
+            sent_amount, sent_currency, received_amount, received_currency = legs
+            row = make_swap_tx(txinfo, sent_amount, sent_currency, received_amount, received_currency)
+            exporter.ingest_row(row)
+        else:
+            handle_unknown(exporter, txinfo)

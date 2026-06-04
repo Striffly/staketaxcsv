@@ -41,6 +41,66 @@ def detect_fees(_transfers_in, _transfers_out):
     return _transfers_in, transfers_out, fee
 
 
+def swap_legs_from_raw(txinfo):
+    """ Reconstruct the (sent, received) legs of a 2-sided swap from the RAW
+    transfers (txinfo.transfers), removing ONLY the true on-chain gas
+    (txinfo.fee_blockchain) from the SOL out leg.
+
+    Rationale: detect_fees() folds ANY SOL out below FEE_THRESHOLD (0.03 SOL,
+    ~6 EUR) into "fee". For small memecoin buys/sells (pump.fun, Raydium route)
+    the actual purchase amount is below that threshold, so the SOL leg gets
+    wrongly swallowed and the swap collapses to a single leg. Here we keep the
+    SOL leg and net out only the real network fee, so the swap stays balanced
+    and fiscally faithful (crypto<->crypto swap, "sursis").
+
+    Returns (sent_amount, sent_currency, received_amount, received_currency)
+    when exactly one asset moves in and one moves out, else None.
+    """
+    transfers_in, transfers_out, _ = txinfo.transfers
+
+    # Net by currency (raw, before detect_fees), keeping the SOL gas in place.
+    net = {}
+    for amount, currency, _, _ in transfers_in:
+        net[currency] = net.get(currency, 0) + amount
+    for amount, currency, _, _ in transfers_out:
+        net[currency] = net.get(currency, 0) - amount
+
+    # Remove ONLY the true on-chain fee from the SOL leg (gas is always paid in SOL).
+    if CURRENCY_SOL in net and txinfo.fee_blockchain:
+        net[CURRENCY_SOL] += txinfo.fee_blockchain  # net SOL is negative when SOL goes out
+
+    legs_in = [(amt, cur) for cur, amt in net.items() if amt > 1e-12]
+    legs_out = [(-amt, cur) for cur, amt in net.items() if amt < -1e-12]
+
+    if len(legs_in) == 1 and len(legs_out) == 1:
+        received_amount, received_currency = legs_in[0]
+        sent_amount, sent_currency = legs_out[0]
+        return sent_amount, sent_currency, received_amount, received_currency
+    return None
+
+
+def net_sol_movement_from_raw(txinfo):
+    """ Net SOL moved by the wallet from RAW transfers, with ONLY the true on-chain
+    gas (txinfo.fee_blockchain) removed. Use for one-sided SOL operations (e.g. a
+    gambling bet/win) where detect_fees() would otherwise swallow a sub-threshold
+    SOL amount into "fee" and lose the real economic movement.
+
+    Returns a signed amount in SOL: negative = SOL left the wallet (bet/spend),
+    positive = SOL entered (win), 0.0 if only gas moved.
+    """
+    transfers_in, transfers_out, _ = txinfo.transfers
+    net = 0.0
+    for amount, currency, _, _ in transfers_in:
+        if currency == CURRENCY_SOL:
+            net += amount
+    for amount, currency, _, _ in transfers_out:
+        if currency == CURRENCY_SOL:
+            net -= amount
+    if txinfo.fee_blockchain:
+        net += txinfo.fee_blockchain  # add back gas: it is not part of the economic op
+    return net
+
+
 def calculate_fee(txinfo):
     """ Returns fee amount for transaction """
     _, transfers_out, _ = txinfo.transfers

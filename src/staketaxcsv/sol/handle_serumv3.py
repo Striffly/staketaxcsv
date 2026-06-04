@@ -5,6 +5,7 @@ import logging
 from staketaxcsv.common.make_tx import make_swap_tx
 from staketaxcsv.sol.config_sol import localconfig
 from staketaxcsv.sol.make_tx import make_serum_dex_no_transfer, make_serum_dex_transfer_in, make_serum_dex_transfer_out
+from staketaxcsv.sol.util_sol import swap_legs_from_raw
 
 
 def handle_serumv3(exporter, txinfo):
@@ -27,6 +28,15 @@ def handle_serumv3(exporter, txinfo):
             row = make_swap_tx(txinfo, sent_amount, sent_currency, received_amount, received_currency)
             exporter.ingest_row(row)
             return
+
+    # detect_fees may have swallowed a small SOL leg (< FEE_THRESHOLD), collapsing the
+    # swap to a single leg: rebuild the 2-sided swap from raw before per-leg emission.
+    legs = swap_legs_from_raw(txinfo)
+    if legs:
+        sent_amount, sent_currency, received_amount, received_currency = legs
+        row = make_swap_tx(txinfo, sent_amount, sent_currency, received_amount, received_currency)
+        exporter.ingest_row(row)
+        return
 
     # Transfers in
     count = 0

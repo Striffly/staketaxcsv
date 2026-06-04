@@ -2,6 +2,7 @@ from staketaxcsv.common.ExporterTypes import TX_TYPE_SOL_INIT_ACCOUNT
 from staketaxcsv.common.make_tx import make_swap_tx
 from staketaxcsv.sol.handle_simple import handle_unknown_detect_transfers
 from staketaxcsv.sol.make_tx import make_lp_deposit_tx, make_lp_farm_tx, make_simple_tx
+from staketaxcsv.sol.util_sol import swap_legs_from_raw
 
 
 def handle_saber(exporter, txinfo):
@@ -15,6 +16,14 @@ def handle_saber(exporter, txinfo):
             received_amount, received_currency, _, _ = transfers_in[0]
             sent_amount, sent_currency, _, _ = transfers_out[0]
 
+            row = make_swap_tx(txinfo, sent_amount, sent_currency, received_amount, received_currency)
+            exporter.ingest_row(row)
+            return
+
+        # detect_fees may have swallowed a small SOL leg (< FEE_THRESHOLD): rebuild from raw.
+        legs = swap_legs_from_raw(txinfo)
+        if legs:
+            sent_amount, sent_currency, received_amount, received_currency = legs
             row = make_swap_tx(txinfo, sent_amount, sent_currency, received_amount, received_currency)
             exporter.ingest_row(row)
             return
