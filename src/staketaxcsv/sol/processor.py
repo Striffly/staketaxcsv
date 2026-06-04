@@ -199,6 +199,14 @@ def process_tx(wallet_info, exporter, txid, data):
         elif co.PROGRAMID_METAPLEX_CANDY in program_ids:
             handle_metaplex(exporter, txinfo)
 
+        # SPL Token-only ops (no business program besides ComputeBudget) — fee-only
+        elif (set(program_ids) - {co.PROGRAMID_COMPUTE_BUDGET}) == {co.PROGRAMID_TOKEN_ACCOUNTS}:
+            handle_unknown_detect_transfers(exporter, txinfo)
+
+        # Metaplex Bubblegum (compressed NFTs) — fee-only, no fungible asset transfer
+        elif co.PROGRAMID_METAPLEX_BUBBLEGUM in program_ids:
+            handle_unknown_detect_transfers(exporter, txinfo)
+
         # NFT marketplace transactions
         elif get_nft_program(txinfo):
             handle_nft_exchange(exporter, txinfo)

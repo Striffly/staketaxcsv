@@ -1485,9 +1485,22 @@ class Exporter:
                     else:
                         logging.error("Bad condition in export_bittytax_csv(): {}, {}, {}".format(
                             row.received_amount, row.sent_amount, row.as_array()))
+                elif row.tx_type == et.TX_TYPE_UNKNOWN:
+                    # Unrecognised tx: map to a valid bittytax type so --audit can import it.
+                    #  - no asset moved (network fee only, e.g. SPL account init, compressed
+                    #    NFT mint) -> "Fee": non-disposal, just decrements the SOL balance.
+                    #    Aligned with BOFiP BOI-RPPM-PVBMC-30-20 §50 (fees are not a separate
+                    #    taxable cession; they reduce the holding / the main operation).
+                    #  - assets moved (e.g. pump.fun buy SOL->token) -> "Trade": crypto<->crypto
+                    #    swap, re-neutralised as "sursis" (non-taxable) by the FR module.
+                    if not row.received_amount and not row.sent_amount:
+                        bt_type = "Fee"
+                    else:
+                        bt_type = "Trade"
 
-                # Add a dummy sent_amount if fee is on it's own
-                if row.fee and (not row.received_amount and not row.sent_amount):
+                # Add a dummy sent_amount if fee is on it's own (except for the "Fee"
+                # type, which is valid fee-only and needs no dummy Sell leg)
+                if row.fee and (not row.received_amount and not row.sent_amount) and bt_type != "Fee":
                     sent_amount = 0
                     sent_currency = row.fee_currency
                 else:
