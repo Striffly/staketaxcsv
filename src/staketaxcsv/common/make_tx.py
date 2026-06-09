@@ -72,6 +72,23 @@ def make_fiat_sale_tx(txinfo, sent_amount, sent_currency, fiat_amount, fiat_curr
     return row
 
 
+def make_fiat_buy_tx(txinfo, received_amount, received_currency, fiat_amount, fiat_currency,
+                     txid=None, empty_fee=False, z_index=0, note=""):
+    """ Acquisition of crypto against fiat paid off-chain, whose real cost is known from a
+    contemporaneous receipt (e.g. a card on-ramp documented by an invoice). On-chain only the
+    crypto leg is visible (an inbound transfer); the fiat cost is known off-chain. Recorded as
+    a TRADE (buy crypto / sell fiat) so the acquisition enters the cost basis at the EXACT fiat
+    amount paid, instead of being valued at the market price of the day (make_buy_tx). Use this
+    -- rather than `acquisition`/make_buy_tx -- when the cost is documented, not lost.
+    `note` documents the off-chain receipt. """
+    row = _make_tx_exchange(
+        txinfo, fiat_amount, fiat_currency, received_amount, received_currency, TX_TYPE_TRADE, txid,
+        empty_fee=empty_fee, z_index=z_index)
+    if note:
+        row.comment = (note + " " + row.comment).strip() if row.comment else note
+    return row
+
+
 def make_reward_tx(txinfo, reward_amount, reward_currency, txid=None, empty_fee=False, z_index=0):
     """ Staking reward transaction """
     return _make_tx_received(txinfo, reward_amount, reward_currency, TX_TYPE_STAKING, txid, empty_fee, z_index=z_index)

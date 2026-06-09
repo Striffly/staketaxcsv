@@ -2,6 +2,7 @@ import staketaxcsv.sol.util_sol
 from staketaxcsv.common.make_tx import (
     make_airdrop_tx,
     make_buy_tx,
+    make_fiat_buy_tx,
     make_fiat_sale_tx,
     make_transfer_in_tx,
     make_transfer_out_tx,
@@ -72,7 +73,16 @@ def handle_transfer(exporter, txinfo):
         exporter.ingest_row(row)
     elif len(transfers_in) == 1 and len(transfers_out) == 0:
         amount, currency, _, _ = transfers_in[0]
-        if override and override["type"] == "acquisition":
+        if override and override["type"] == "fiat_buy":
+            # Acquisition whose real fiat cost is documented by a contemporaneous receipt
+            # (e.g. a card on-ramp invoice). Record as a Trade buying the crypto for the EXACT
+            # fiat amount paid, so it enters the cost basis at the documented price instead of
+            # the market price of the day. Prefer this over `acquisition` when the cost is known.
+            # See datas/sol_overrides.csv (loaded via STAKETAX_SOL_OVERRIDES_FILE).
+            row = make_fiat_buy_tx(
+                txinfo, amount, currency,
+                float(override["amount"]), override["currency"], note=override["note"])
+        elif override and override["type"] == "acquisition":
             # Withdrawal from a CEX account we no longer control (e.g. Bitstamp): the original
             # cost basis is lost, so record it as an acquisition valued at the market price of
             # the day instead of a (zero-cost) transfer-in.
