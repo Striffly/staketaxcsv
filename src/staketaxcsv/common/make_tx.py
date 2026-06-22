@@ -43,12 +43,18 @@ def make_income_tx(txinfo, income_amount, income_currency, txid=None, empty_fee=
 
 
 def make_buy_tx(txinfo, received_amount, received_currency, txid=None, empty_fee=False, z_index=0, note=""):
-    """ Single-sided acquisition: crypto received whose fiat/cost leg is unavailable
-    (e.g. withdrawal from a CEX account we no longer control). Recorded as GIFT_RECEIVED
-    (-> BittyTax "Gift-Received") so it is valued at the market price of the day and added
-    to the cost basis, without being taxed as income or treated as a zero-cost transfer-in.
-    A single-sided "Trade" cannot be used: BittyTax rejects a Trade with no sell leg.
-    `note` is written to the BittyTax Note column to explain the Gift-Received label. """
+    """ Single-sided acquisition valued at the market price of the day: crypto received whose
+    cost leg is unavailable. Recorded as GIFT_RECEIVED (-> BittyTax "Gift-Received") so it is
+    market-valued and added to the cost basis, without being taxed as income or treated as a
+    zero-cost transfer-in. A single-sided "Trade" cannot be used (BittyTax rejects a Trade with
+    no sell leg). `note` explains the Gift-Received label.
+
+    ⚠ Market valuation is fiscally correct ONLY for a *gratuitous* acquisition with no
+    documented value (gift, passive fork — CGI 150 VH bis III-B 2nd para.). It must NOT be used
+    for an *onerous* buy whose cost is unknown: French law then deems the cost basis nil
+    (BOFiP BOI-RPPM-PVBMC-30-20 §90), not market. For a documented onerous cost, use
+    make_fiat_buy_tx instead. Currently unused (kept for a future gratuitous case);
+    cf. ADR 0004 / ADR 0013. """
     row = _make_tx_received(
         txinfo, received_amount, received_currency, TX_TYPE_GIFT_RECEIVED, txid,
         empty_fee=empty_fee, z_index=z_index)
@@ -78,9 +84,9 @@ def make_fiat_buy_tx(txinfo, received_amount, received_currency, fiat_amount, fi
     contemporaneous receipt (e.g. a card on-ramp documented by an invoice). On-chain only the
     crypto leg is visible (an inbound transfer); the fiat cost is known off-chain. Recorded as
     a TRADE (buy crypto / sell fiat) so the acquisition enters the cost basis at the EXACT fiat
-    amount paid, instead of being valued at the market price of the day (make_buy_tx). Use this
-    -- rather than `acquisition`/make_buy_tx -- when the cost is documented, not lost.
-    `note` documents the off-chain receipt. """
+    amount paid, instead of a market estimate. This is the correct, fiscally-safest treatment
+    for a documented onerous acquisition (real EUR cost = "prix effectif d'acquisition",
+    CGI 150 VH bis III-B). `note` documents the off-chain receipt. Cf. ADR 0013. """
     row = _make_tx_exchange(
         txinfo, fiat_amount, fiat_currency, received_amount, received_currency, TX_TYPE_TRADE, txid,
         empty_fee=empty_fee, z_index=z_index)

@@ -72,13 +72,14 @@ SOL_REWARDS_USE_DB = os.environ.get("STAKETAX_SOL_REWARDS_USE_DB", False)
 # from a CSV pointed to by STAKETAX_SOL_OVERRIDES_FILE, with columns:
 #   txid,type,amount,currency,note
 # Supported types (see sol/handle_transfer.py):
-#   - acquisition : inbound transfer = withdrawal from a CEX account no longer accessible
-#                   (cost basis lost) -> market-priced acquisition (Gift-Received).
 #   - fiat_buy    : inbound transfer = acquisition whose real fiat cost is documented by a
 #                   receipt (e.g. card on-ramp) -> Trade buying the crypto for `amount`
 #                   `currency` (cost basis at the documented price, not the market price).
 #   - fiat_sale   : outbound transfer = sale against fiat received off-chain (e.g. PayPal)
 #                   -> Trade selling the crypto for `amount` `currency` (taxable cession).
+# There is deliberately no "market-priced acquisition" type for an undocumented *onerous* buy:
+# French law values at market only *gratuitous* acquisitions; an undocumented onerous cost is
+# "réputé nul" (BOFiP §90), handled as a zero cost basis by the FR module. Cf. ADR 0004/0013.
 # Kept in a versioned, commented data file rather than env vars: these are not secrets but
 # fiscal annotations that document why each tx is treated specially.
 def _load_sol_overrides():

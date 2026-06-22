@@ -1,7 +1,6 @@
 import staketaxcsv.sol.util_sol
 from staketaxcsv.common.make_tx import (
     make_airdrop_tx,
-    make_buy_tx,
     make_fiat_buy_tx,
     make_fiat_sale_tx,
     make_transfer_in_tx,
@@ -76,18 +75,18 @@ def handle_transfer(exporter, txinfo):
         if override and override["type"] == "fiat_buy":
             # Acquisition whose real fiat cost is documented by a contemporaneous receipt
             # (e.g. a card on-ramp invoice). Record as a Trade buying the crypto for the EXACT
-            # fiat amount paid, so it enters the cost basis at the documented price instead of
-            # the market price of the day. Prefer this over `acquisition` when the cost is known.
-            # See datas/sol_overrides.csv (loaded via STAKETAX_SOL_OVERRIDES_FILE).
+            # fiat amount paid, so it enters the cost basis at the documented price.
+            # See datas/overrides/sol_overrides.csv (loaded via STAKETAX_SOL_OVERRIDES_FILE).
+            #
+            # NB: there is deliberately NO "market-priced acquisition" override for an *onerous*
+            # buy whose cost is unknown. French law (CGI 150 VH bis III-B) values at market only
+            # *gratuitous* acquisitions; an undocumented *onerous* cost is "réputé nul" (BOFiP
+            # BOI-RPPM-PVBMC-30-20 §90), not market-priced. The FR module books such a case at a
+            # zero cost basis. In practice every onerous cost has been reconstituted as a
+            # documented fiat_buy, so no such override exists. Cf. ADR 0004 / ADR 0013.
             row = make_fiat_buy_tx(
                 txinfo, amount, currency,
                 float(override["amount"]), override["currency"], note=override["note"])
-        elif override and override["type"] == "acquisition":
-            # Withdrawal from a CEX account we no longer control (e.g. Bitstamp): the original
-            # cost basis is lost, so record it as an acquisition valued at the market price of
-            # the day instead of a (zero-cost) transfer-in.
-            # See datas/sol_overrides.csv (loaded via STAKETAX_SOL_OVERRIDES_FILE).
-            row = make_buy_tx(txinfo, amount, currency, note=override["note"])
         elif currency == CURRENCY_SOL and amount < SOL_DUST_AIRDROP_THRESHOLD:
             # Unsolicited SOL dust (spam/address-poisoning airdrop): a real in-kind receipt
             # without contrepartie, NOT an internal transfer. Airdrop (vs transfer-in) keeps it
